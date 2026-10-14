@@ -63,9 +63,9 @@
   input[type="file"]::file-selector-button:active { transform: scale(.95); }
 </style>
 </head>
-<body class="text-slate-100 min-h-screen flex flex-col">
+<body class="text-slate-100 min-h-screen flex flex-col items-center">
 
-<header class="max-w-3xl w-full mx-auto px-4 pt-8 pb-2 flex items-center justify-between">
+<header class="w-full max-w-3xl px-4 pt-8 pb-2 flex items-center justify-between">
   <div>
     <h1 class="text-2xl font-bold tracking-tight">Placement <span class="neon-text">Prep Coach</span></h1>
     <p class="text-slate-400 text-sm mt-0.5">On-device mock interviews · nothing uploads by default</p>
@@ -73,7 +73,8 @@
   <span id="modeBadge" class="text-[11px] px-3 py-1 rounded-full glass text-emerald-300">mode: …</span>
 </header>
 
-<main class="max-w-3xl w-full mx-auto px-4 pb-16 flex-1">
+<main class="w-full max-w-3xl px-4 pb-16 flex-1 flex flex-col justify-center">
+  <div class="w-full">
 
   <!-- SCREEN 1 · setup -->
   <section id="screen-setup" class="screen active">
@@ -142,6 +143,7 @@
       </div>
     </div>
   </section>
+  </div>
 </main>
 
 <script type="module">
