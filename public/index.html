@@ -87,9 +87,20 @@
       </label>
       <p id="pdfStatus" class="text-xs text-slate-400 mt-1.5">Text extracts on-device (OCR fallback for scans).</p>
       <div class="grid md:grid-cols-2 gap-3 mt-3">
-        <label class="block text-sm font-medium">CV text <span class="text-slate-500 font-normal">(editable)</span>
-          <textarea id="resume" rows="7" class="mt-1.5 w-full bg-black/40 border border-emerald-500/20 rounded-xl p-3 text-sm" placeholder="…or paste your resume here"></textarea>
-        </label>
+        <div>
+          <p class="text-sm font-medium">CV preview</p>
+          <div id="cvPreview" class="hidden mt-1.5 rounded-xl overflow-hidden border border-emerald-500/20 bg-black/40 p-3 flex gap-3 items-start">
+            <canvas id="cvThumb" class="rounded-md border border-white/10 w-24 shrink-0"></canvas>
+            <div class="text-xs text-slate-400 min-w-0">
+              <p id="cvName" class="text-slate-200 font-medium truncate"></p>
+              <p id="cvMeta" class="mt-1"></p>
+              <button id="cvRemove" class="ghost-btn mt-2 text-red-300 underline underline-offset-4">Remove</button>
+            </div>
+          </div>
+          <div id="cvEmpty" class="mt-1.5 rounded-xl border border-dashed border-emerald-500/25 bg-black/20 p-5 text-center text-xs text-slate-500">
+            Upload a PDF above — a thumbnail preview appears here.
+          </div>
+        </div>
         <label class="block text-sm font-medium">Job description
           <textarea id="jd" rows="7" class="mt-1.5 w-full bg-black/40 border border-emerald-500/20 rounded-xl p-3 text-sm" placeholder="Paste the JD"></textarea>
         </label>
@@ -150,12 +161,13 @@
 import { saveSession, appendTurn, exportSession } from "/src/ai/store.js";
 import { captureSpeech16kWav, transcribeWav16k, createResidency } from "/src/ai/loaders.js";
 import { describeMode } from "/src/ai/modelRouter.js";
-import { intakeResumePdf } from "/src/ai/resumePdf.js";
+import { intakeResumePdf, renderPdfThumbnail } from "/src/ai/resumePdf.js";
 
 const $ = (id) => document.getElementById(id);
 const TOTAL_Q = 5, ANSWER_SEC = 180;
 let sessionId = null, profile = {}, results = [], qIndex = 0, currentQ = "";
 let recording = false, timerId = null, remain = ANSWER_SEC;
+let resumeText = ""; // parsed on-device from the PDF; never displayed
 
 function show(name) {
   for (const s of document.querySelectorAll(".screen")) s.classList.remove("active");
@@ -181,21 +193,32 @@ $("pdf").onchange = async (e) => {
   if (!file) return;
   $("pdfStatus").textContent = "Reading PDF on-device…";
   try {
-    const { text, pages, method } = await intakeResumePdf(file, (p) => {
+    const pages = await renderPdfThumbnail(file, $("cvThumb"));
+    const { text, method } = await intakeResumePdf(file, (p) => {
       $("pdfStatus").textContent = `${p.phase === "ocr" ? "OCR scanning" : "Extracting text"} page ${p.page}/${p.of}…`;
     });
-    $("resume").value = text;
-    $("pdfStatus").textContent = `Done: ${pages} page(s), ${text.length} chars via ${method === "ocr" ? "OCR (scan)" : "text layer"}.`;
+    resumeText = text;
+    $("cvName").textContent = file.name;
+    $("cvMeta").textContent = `${pages} page(s) · ${text.length} chars via ${method === "ocr" ? "OCR (scan)" : "text layer"}`;
+    $("cvPreview").classList.remove("hidden");
+    $("cvEmpty").classList.add("hidden");
+    $("pdfStatus").textContent = "CV ready. Paste the JD, set the role, hit Proceed.";
   } catch (err) {
-    $("pdfStatus").textContent = "Couldn't read that PDF (" + err.message + ") — paste text instead.";
+    resumeText = "";
+    $("pdfStatus").textContent = "Couldn't read that PDF (" + err.message + ") — try another file.";
   }
 };
-
+$("cvRemove").onclick = () => {
+  resumeText = ""; $("pdf").value = "";
+  $("cvPreview").classList.add("hidden");
+  $("cvEmpty").classList.remove("hidden");
+  $("pdfStatus").textContent = "CV removed. Upload a PDF to continue.";
+};
 $("proceed").onclick = async () => {
-  if (!$("resume").value.trim()) { $("pdfStatus").textContent = "Upload a CV or paste resume text first."; return; }
+  if (!resumeText.trim()) { $("pdfStatus").textContent = "Upload your CV PDF first."; return; }
   $("proceed").textContent = "Preparing…";
   const r = await fetch("/api/session", { method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ resumeText: $("resume").value, jd: $("jd").value, role: $("role").value }) });
+    body: JSON.stringify({ resumeText, jd: $("jd").value, role: $("role").value }) });
   const d = await r.json();
   sessionId = d.sessionId; profile = d.profile; currentQ = d.question; qIndex = 0; results = [];
   await saveSession({ id: sessionId, profile, jd: $("jd").value, role: $("role").value, turn: 0, createdAt: new Date().toISOString() }).catch(() => {});

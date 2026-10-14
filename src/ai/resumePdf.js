@@ -55,6 +55,21 @@ export async function ocrPdfPages(file, onProgress = () => {}) {
   return { text: joinPages(pages), pages: pdf.numPages, method: "ocr" };
 }
 
+// Render page 1 to a thumbnail canvas (returns page count).
+export async function renderPdfThumbnail(file, canvas, scale = 0.35) {
+  const pdfjs = await import(
+    "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.min.mjs"
+  );
+  pdfjs.GlobalWorkerOptions.workerSrc =
+    "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.min.mjs";
+  const pdf = await pdfjs.getDocument({ data: await file.arrayBuffer() }).promise;
+  const viewport = pdf.getPage(1).then((page) => page.getViewport({ scale }));
+  const vp = await viewport;
+  canvas.width = vp.width; canvas.height = vp.height;
+  const page = await pdf.getPage(1);
+  await page.render({ canvasContext: canvas.getContext("2d"), viewport: vp }).promise;
+  return pdf.numPages;
+}
 // Full intake: text layer → OCR fallback when the layer is empty (scanned PDF).
 export async function intakeResumePdf(file, onProgress = () => {}) {
   if (!/pdf$/i.test(file.type) && !/\.pdf$/i.test(file.name)) {
