@@ -56,6 +56,7 @@
   .fade-up { animation: fadeUp .4s ease both; }
   @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
   textarea { field-sizing: content; }
+  #jd { field-sizing: fixed; resize: none; overflow-y: auto; }
   input[type="file"]::file-selector-button {
     margin-right: .75rem; padding: .5rem 1rem; border-radius: .6rem; border: 0;
     background: linear-gradient(135deg,#00e676,#00a152); color: #00130a; font-weight: 600; cursor: pointer;
@@ -350,7 +351,7 @@ $("export").onclick = async () => {
   a.download = sessionId + ".json"; a.click();
 };
 $("restart").onclick = () => { resetTimerUI(); show("setup"); };
-for (const t of document.querySelectorAll("textarea")) {
+for (const t of document.querySelectorAll("textarea:not(#jd)")) {
   t.addEventListener("input", () => { t.style.height = "auto"; t.style.height = t.scrollHeight + "px"; });
 }
 </script>
