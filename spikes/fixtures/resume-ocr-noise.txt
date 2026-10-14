@@ -1,0 +1,17 @@
+ARJUN MEHTA
+Final year B.Tech Computer Science Pune lnstitute of Technology
+
+SK1LLS
+Pyth0n, JavaScript, TypeScript, React, Node js, PostgreSQL, Docker
+
+EXPERIENCE
+Software Engineering lntern, Acme Fintech (Jun 2025 - Aug 2025)
+- BuiIt a Redis backed rate Iimiter that cut p99 API latency from 800ms to 320ms
+- Shipped an admin dashboard in React used by 12 support agents
+
+PR0JECTS
+CampusMess - mess menu + waste tracker (React, Express, Postgres)
+- 400 daily users in hostel; cut reported food waste l8% over 6 weeks
+- TinyDiffusion - MNIST video diffusion from scratch (PyTorch)
+
+GROUND TRUTH: same entities as resume-clean.txt with OCR confusions (0/O, l/1/I, ﬁ, rn/m).

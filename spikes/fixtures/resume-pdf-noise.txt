@@ -1,0 +1,23 @@
+ARJUN MEHTA
+Final-year B.Tech Computer Science, Pune Institute of Technology
+Email: arjun.mehta@example.com | Phone: +91-98XXX-XXXXX
+
+SKILLS
+Python, JavaScript, TypeScript, React, Node.js, PostgreSQL, Docker
+
+EXPERI- ENCE
+Software Engineering Intern, Acme Fintech (Jun 2025 – Aug 2025)
+- Built a Redis-backed rate limiter that cut p99 API
+latency from 800ms to 320ms.
+- Shipped an admin dash- board in React used by 12 sup-
+port agents.
+
+PROJECTS
+CampusMess — mess menu + waste tracker (React, Express, Postgres)
+- 400 daily users in hostel; cut reported food waste 18% over
+6 weeks.
+ﬁ TinyDiffusion — MNIST video diffusion from scratch (PyTorch)
+- Implemented 3D UNet with split spatial/temporal convs; trained
+on single GPU.
+
+GROUND TRUTH: same as resume-clean.txt (hyphenation/ligature noise only).
