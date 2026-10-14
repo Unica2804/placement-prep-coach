@@ -139,6 +139,10 @@
         </button>
       </div>
       <p id="speakHint" class="text-slate-400 text-sm mt-3">Tap to speak — timer auto-submits at 0:00, or tap stop to finish early</p>
+      <label id="cloudMic" class="hidden text-xs flex gap-1.5 items-center text-slate-400 mt-2">
+        <input type="checkbox" id="cloudMicBox" class="accent-amber-400" />
+        Live transcript via browser speech <span class="text-amber-300/80">(sends audio to browser vendor — opt-in per answer)</span>
+      </label>
       <button id="stopBtn" class="ghost-btn hidden mt-3 px-6 py-2 rounded-xl bg-red-500/15 border border-red-500/40 text-red-300 font-medium">■ Stop &amp; submit</button>
     </div>
   </section>
@@ -160,7 +164,7 @@
 
 <script type="module">
 import { saveSession, appendTurn, exportSession } from "/src/ai/store.js";
-import { captureSpeech16kWav, transcribeWav16k, createResidency } from "/src/ai/loaders.js";
+import { captureSpeech16kWav, transcribeWav16k, dictateWithBrowserSpeech, browserSpeechAvailable, createResidency } from "/src/ai/loaders.js";
 import { describeMode } from "/src/ai/modelRouter.js";
 import { intakeResumePdf, renderPdfThumbnail } from "/src/ai/resumePdf.js";
 
@@ -243,6 +247,8 @@ function tick() {
   $("timerArc").style.strokeDashoffset = String(452.4 * (1 - remain / ANSWER_SEC));
   if (remain <= 0) finishAnswer(true);
 }
+let cloudStop = null;
+if (browserSpeechAvailable()) $("cloudMic").classList.remove("hidden");
 $("speak").onclick = async () => {
   if (recording) { finishAnswer(false); return; }
   recording = true;
@@ -250,18 +256,38 @@ $("speak").onclick = async () => {
   $("stopBtn").classList.remove("hidden");
   $("speakHint").textContent = "Listening… tap the button or Stop to submit early";
   timerId = setInterval(tick, 1000);
+  const useCloud = $("cloudMicBox")?.checked && browserSpeechAvailable();
+  if (useCloud) {
+    $("answer").classList.remove("hidden");
+    $("answer").value = "";
+    $("answer").placeholder = "Live transcript appears here — editable before submit";
+    try {
+      const stopper = dictateWithBrowserSpeech({
+        onPartial: (t) => { if (recording) $("answer").value = t; },
+        onEnd: () => {},
+      });
+      cloudStop = stopper.stop;
+    } catch (e) {
+      if (!recording) return;
+      recording = false; clearInterval(timerId); resetTimerSoft();
+      resetSpeakUI();
+      $("speakHint").textContent = "Browser speech unavailable — type your answer instead.";
+      $("answer").classList.remove("hidden");
+      return;
+    }
+    return;
+  }
   try {
     pendingCapture = captureSpeech16kWav({ maxSec: ANSWER_SEC, onLevel: () => {} });
     const wav = await pendingCapture;
     pendingCapture = null;
-    if (!recording) return; // already submitted by timer
+    if (!recording) return; // submitted by timer while capturing
     await submitAudio(wav);
   } catch (e) {
     if (!recording) return;
     recording = false; clearInterval(timerId); pendingCapture = null;
-    $("speakIcon").textContent = "🎙"; $("speak").classList.remove("recording");
-    $("stopBtn").classList.add("hidden"); resetTimerSoft();
-    $("speakHint").textContent = "Mic unavailable (" + (e.message || e) + ") — use “type instead”.";
+    resetSpeakUI(); resetTimerSoft();
+    $("speakHint").textContent = "Mic unavailable (" + (e.message || e) + "). Type your answer instead.";
     $("typeToggle").classList.remove("hidden");
   }
 };
@@ -271,17 +297,28 @@ $("typeToggle").onclick = () => { $("answer").classList.toggle("hidden"); };
 async function finishAnswer(auto) {
   if (!recording) return;
   recording = false; clearInterval(timerId);
-  captureSpeech16kWav.stop?.();
-  $("speakIcon").textContent = "🎙"; $("speak").classList.remove("recording");
-  $("stopBtn").classList.add("hidden");
-  const typed = $("answer").value.trim();
-  $("answer").value = ""; $("answer").classList.add("hidden");
-  if (typed) return submitText(typed, auto);
-  $("speakHint").textContent = auto ? "Time! Processing…" : "Processing…";
+  resetSpeakUI();
+  if (cloudStop) { // browser-speech path: live transcript is already in the box
+    cloudStop(); cloudStop = null;
+    const typed = $("answer").value.trim();
+    $("answer").value = ""; $("answer").classList.add("hidden");
+    if (!typed) {
+      $("speakHint").textContent = "No speech detected — tap to try again or type your answer.";
+      $("typeToggle").classList.remove("hidden");
+      $("answer").classList.remove("hidden");
+      resetTimerSoft();
+      return;
+    }
+    return submitText(typed, auto);
+  }
   captureSpeech16kWav.stop?.();
   const wav = await pendingCapture;
   pendingCapture = null;
   await submitAudio(wav, auto);
+}
+function resetSpeakUI() {
+  $("speakIcon").textContent = "🎙"; $("speak").classList.remove("recording");
+  $("stopBtn").classList.add("hidden");
 }
 let pendingCapture = null;
 

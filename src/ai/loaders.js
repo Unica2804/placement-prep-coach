@@ -44,6 +44,39 @@ export async function transcribeWav16k(_wavBytes) {
   return { ready: false, reason: "parakeet-wasm-not-vendored" };
 }
 
+// Interim voice path (explicit opt-in, labeled in UI): browser built-in speech
+// recognition streams a live transcript. Unlike Parakeet it sends audio to the
+// browser vendor — never the default, always the user's choice per answer.
+export function browserSpeechAvailable() {
+  return Boolean(
+    typeof window !== "undefined" &&
+      (window.SpeechRecognition || window.webkitSpeechRecognition)
+  );
+}
+
+export function dictateWithBrowserSpeech({ lang = "en-US", onPartial = () => {}, onEnd = () => {} } = {}) {
+  if (!browserSpeechAvailable()) throw new Error("browser-speech-unavailable");
+  const Ctor = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const rec = new Ctor();
+  rec.lang = lang;
+  rec.interimResults = true;
+  rec.continuous = true;
+  let finals = [];
+  rec.onresult = (e) => {
+    let interim = "";
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      const t = e.results[i][0].transcript;
+      if (e.results[i].isFinal) finals.push(t);
+      else interim += t;
+    }
+    onPartial(finals.join(" ") + (interim ? " " + interim : ""));
+  };
+  rec.onend = () => onEnd(finals.join(" "));
+  rec.onerror = (e) => onEnd(finals.join(" "), e?.error);
+  rec.start();
+  return { stop: () => { try { rec.stop(); } catch {} } };
+}
+
 // Mic → 16 kHz mono WAV bytes. Pure capture path, works today.
 export async function captureSpeech16kWav({ maxSec = 120, onLevel = () => {} } = {}) {
   const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
