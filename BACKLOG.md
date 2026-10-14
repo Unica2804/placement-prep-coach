@@ -12,7 +12,8 @@
 ## 2. Build
 
 * [x] **B1 — Scaffold** (`completed`): Vite+TS+Tailwind PWA shell, MIT LICENSE, README, `render.yaml` web service (sleep-when-idle), `.gitignore`, health endpoint.
-* [ ] **B2 — On-device AI layer** (`pending`): wllama loader + progress/resume, Parakeet WASM loader, mic→WAV→VAD pipeline, OCR flag.
+* [x] **B2 — On-device AI layer** (`completed` 2026-10-14): Dexie-free IDB store (sessions/turns, export/import, 6 tests), pure 16 kHz downsample + WAV encoder (6 tests), wllama Gemma loader (CDN, IDB-cached, 4K ctx), mic→WAV capture with level meter + VAD stop, UI wired to IDB + export. 31/31 tests green.
+* [ ] **B2b — Parakeet WASM vendoring** (`pending`, open risk): bundle whisper.cpp/transcribe.cpp parakeet WASM so `transcribeWav16k()` returns `{ready:true}`. Native path proven (S3). UI degrades honestly until then.
 * [ ] **B3 — Mastra server** (`pending`): 3 agents + 3 tools + workflows + eval harness, anonymous `requestContext`, opt-in backup API.
 * [ ] **B4 — Interview UI** (`pending`): professional Upload → 1Q + auto-grow voice textbox → Eval → Plan screens; IDB sessions; export/import.
 * [ ] **B5 — Deploy proof** (`pending`): Render deploy, cold-start log, Lighthouse + PWA check, demo video/GIF.

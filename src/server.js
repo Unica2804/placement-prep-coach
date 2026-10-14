@@ -8,6 +8,7 @@ const root = path.join(__dirname, "..");
 const app = express();
 app.use(express.json({ limit: "1mb" }));
 app.use(express.static(path.join(root, "public")));
+app.use("/src", express.static(path.join(root, "src"))); // dev + Render: ships browser AI modules
 
 const backupStore = new Map(); // opt-in only; primary store is IndexedDB on-device
 
