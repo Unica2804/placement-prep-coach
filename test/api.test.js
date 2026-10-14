@@ -1,8 +1,13 @@
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
 
 process.env.NODE_ENV = "test";
 const { default: app } = await import("../src/server.js");
+
+const sttProvisioned = () =>
+  fs.existsSync(process.env.TRANSCRIBE_BIN || "/tmp/transcribe.cpp/build/bin/transcribe-cli") &&
+  fs.existsSync(process.env.PARAKEET_MODEL || "/tmp/parakeet-Q4_K_M.gguf");
 
 let base = "";
 let srv = null;
@@ -39,6 +44,27 @@ test("POST /api/session returns question + profile", async () => {
 test("POST /api/turn rejects empty answer with 400", async () => {
   const r = await call("POST", "/api/turn", { question: "Q", answer: "  " });
   assert.equal(r.status, 400);
+});
+
+test("POST /api/transcribe requires consent", async () => {
+  const wav = Buffer.from(new Uint8Array(44 + 16000 * 2));
+  const denied = await fetch(base + "/api/transcribe", {
+    method: "POST", headers: { "Content-Type": "audio/wav" }, body: wav,
+  });
+  assert.equal(denied.status, 400);
+});
+
+test("POST /api/transcribe returns transcript when provisioned", { skip: !sttProvisioned() }, async () => {
+  const tone = new Float32Array(16000);
+  for (let i = 0; i < tone.length; i++) tone[i] = 0.3 * Math.sin((2 * Math.PI * 440 * i) / 16000);
+  const { encodeWav16k } = await import("../src/ai/audio.js");
+  const r = await fetch(base + "/api/transcribe?consent=1", {
+    method: "POST", headers: { "Content-Type": "audio/wav" }, body: Buffer.from(encodeWav16k(tone)),
+  });
+  assert.equal(r.status, 200);
+  const d = await r.json();
+  assert.equal(typeof d.text, "string");
+  assert.match(d.engine, /parakeet/);
 });
 
 test("PUT /api/sessions requires consent", async () => {

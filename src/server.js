@@ -1,5 +1,8 @@
 import express from "express";
 import path from "node:path";
+import os from "node:os";
+import fs from "node:fs";
+import { execFile } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { runSetter, runEvaluator, runResumeParse } from "./mastra/agents.js";
 
@@ -43,6 +46,30 @@ app.put("/api/sessions/:id", (req, res) => {
   if (req.body?.consent !== true) return res.status(400).json({ error: "backup requires explicit consent" });
   backupStore.set(req.params.id, { ...req.body, backedUpAt: new Date().toISOString() });
   res.json({ ok: true });
+});
+
+// Opt-in server transcription (Parakeet on Render, credits-funded).
+// Default is on-device; this endpoint only runs when the user explicitly
+// chooses server transcription in the UI (consent flag in JSON body wrapper).
+// Body: raw 16 kHz mono WAV bytes (max ~5 min). Requires TRANSCRIBE_BIN +
+// PARAKEET_MODEL env (render.yaml build provides both).
+const TRANSCRIBE_BIN = process.env.TRANSCRIBE_BIN || "/tmp/transcribe.cpp/build/bin/transcribe-cli";
+const PARAKEET_MODEL = process.env.PARAKEET_MODEL || "/tmp/parakeet-Q4_K_M.gguf";
+
+app.post("/api/transcribe", express.raw({ type: "audio/wav", limit: "12mb" }), (req, res) => {
+  if (req.query.consent !== "1") return res.status(400).json({ error: "server transcription requires explicit consent" });
+  if (!req.body?.length) return res.status(400).json({ error: "empty audio" });
+  if (!fs.existsSync(TRANSCRIBE_BIN) || !fs.existsSync(PARAKEET_MODEL)) {
+    return res.status(503).json({ error: "server STT not provisioned on this host" });
+  }
+  const tmp = path.join(os.tmpdir(), `stt-${Date.now().toString(36)}.wav`);
+  fs.writeFileSync(tmp, req.body);
+  execFile(TRANSCRIBE_BIN, ["-m", PARAKEET_MODEL, tmp], { timeout: 120000 }, (err, stdout) => {
+    fs.rmSync(tmp, { force: true });
+    if (err) return res.status(500).json({ error: "transcription failed" });
+    const m = String(stdout).match(/^text:\s*(.*)$/m);
+    res.json({ text: (m?.[1] || "").trim(), engine: "parakeet-tdt-0.6b-v3-Q4_K_M" });
+  });
 });
 
 const PORT = process.env.PORT || 3000;

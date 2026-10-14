@@ -139,6 +139,10 @@
         </button>
       </div>
       <p id="speakHint" class="text-slate-400 text-sm mt-3">Tap to speak — timer auto-submits at 0:00, or tap stop to finish early</p>
+      <label id="serverMic" class="text-xs flex gap-1.5 items-center text-slate-400 mt-2">
+        <input type="checkbox" id="serverMicBox" class="accent-emerald-400" />
+        Server transcription — our Parakeet model <span class="text-slate-500">(uploads audio, opt-in)</span>
+      </label>
       <label id="cloudMic" class="hidden text-xs flex gap-1.5 items-center text-slate-400 mt-2">
         <input type="checkbox" id="cloudMicBox" class="accent-amber-400" />
         Live transcript via browser speech <span class="text-amber-300/80">(sends audio to browser vendor — opt-in per answer)</span>
@@ -323,21 +327,32 @@ function resetSpeakUI() {
 let pendingCapture = null;
 
 async function submitAudio(wav, auto) {
-  const t = await transcribeWav16k(wav).catch(() => ({ ready: false }));
-  if (!t.ready) {
-    $("speakHint").textContent = "On-device transcription lands with the Parakeet WASM build — type your answer for now.";
+  if ($("serverMicBox")?.checked) {
+    $("speakHint").textContent = "Transcribing on our server (Parakeet)…";
+    const t = await transcribeWav16k(wav, { consent: true }).catch(() => ({ ready: false, reason: "network" }));
+    if (t.ready && t.text) return submitText(t.text, auto);
+    $("speakHint").textContent = `Server transcription unavailable (${t.reason}) — type your answer for now.`;
     $("typeToggle").classList.remove("hidden");
     $("answer").classList.remove("hidden"); $("answer").focus();
     resetTimerSoft();
-    $("submitTyped")?.remove();
-    const b = document.createElement("button");
-    b.id = "submitTyped"; b.textContent = "Submit typed answer";
-    b.className = "neon-btn mt-3 px-6 py-2 rounded-xl font-semibold";
-    b.onclick = () => { const v = $("answer").value.trim(); if (v) { b.remove(); submitText(v, auto); } };
-    $("speakHint").after(b);
+    offerTypedSubmit(auto);
     return;
   }
-  return submitText(t.text, auto);
+  // No upload without opt-in: straight to the honest fallback.
+  $("speakHint").textContent = "On-device transcription lands with the Parakeet WASM build — type your answer for now.";
+  $("typeToggle").classList.remove("hidden");
+  $("answer").classList.remove("hidden"); $("answer").focus();
+  resetTimerSoft();
+  offerTypedSubmit(auto);
+}
+}
+function offerTypedSubmit(auto) {
+  $("submitTyped")?.remove();
+  const b = document.createElement("button");
+  b.id = "submitTyped"; b.textContent = "Submit typed answer";
+  b.className = "neon-btn mt-3 px-6 py-2 rounded-xl font-semibold";
+  b.onclick = () => { const v = $("answer").value.trim(); if (v) { b.remove(); submitText(v, auto); } };
+  $("speakHint").after(b);
 }
 function resetTimerSoft() {
   remain = ANSWER_SEC; $("timerText").textContent = "3:00";

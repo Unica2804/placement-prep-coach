@@ -40,8 +40,22 @@ export async function loadParakeetWasm() {
 }
 export async function unloadParakeet() {}
 
-export async function transcribeWav16k(_wavBytes) {
-  return { ready: false, reason: "parakeet-wasm-not-vendored" };
+// Server Parakeet transcription. Call ONLY with explicit user opt-in —
+// the caller passes consent: true, which appends ?consent=1. Without it the
+// server rejects with 400 and transcribes nothing.
+export async function transcribeWav16k(wavBytes, { consent = false } = {}) {
+  if (!consent) return { ready: false, reason: "no-consent" };
+  const r = await fetch("/api/transcribe?consent=1", {
+    method: "POST",
+    headers: { "Content-Type": "audio/wav" },
+    body: wavBytes,
+  });
+  if (!r.ok) {
+    const d = await r.json().catch(() => ({}));
+    return { ready: false, reason: d.error || `server-${r.status}` };
+  }
+  const d = await r.json();
+  return { ready: true, text: d.text, engine: d.engine };
 }
 
 // Interim voice path (explicit opt-in, labeled in UI): browser built-in speech

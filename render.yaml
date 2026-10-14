@@ -2,18 +2,30 @@ services:
   - type: web
     name: placement-prep-coach
     runtime: node
-    plan: starter
+    # Standard (2 GB RAM): Parakeet peaks at ~1.15 GB + Node ~200 MB.
+    # Starter (512 MB) WILL OOM — do not downgrade without owner approval.
+    # Bump to `pro` (4 GB) if concurrent transcriptions OOM; credits cover judging week.
+    plan: standard
     autoDeploy: true
     sleeping: true
     healthCheckPath: /healthz
-    buildCommand: npm ci
+    buildCommand: |-
+      npm ci &&
+      (test -x models/bin/transcribe-cli || (git clone --depth 1 https://github.com/handy-computer/transcribe.cpp.git /tmp/tc-build &&
+        cmake -S /tmp/tc-build -B /tmp/tc-build/build -DCMAKE_BUILD_TYPE=Release &&
+        cmake --build /tmp/tc-build/build --target transcribe-cli -j4 &&
+        mkdir -p models/bin && cp /tmp/tc-build/build/bin/transcribe-cli models/bin/)) &&
+      (test -f models/parakeet-Q4_K_M.gguf || (mkdir -p models &&
+        curl -sL -o models/parakeet-Q4_K_M.gguf https://huggingface.co/handy-computer/parakeet-tdt-0.6b-v3-gguf/resolve/main/parakeet-tdt-0.6b-v3-Q4_K_M.gguf))
     startCommand: npm start
     envVars:
       - key: NODE_VERSION
         value: "22"
+      - key: TRANSCRIBE_BIN
+        value: models/bin/transcribe-cli
+      - key: PARAKEET_MODEL
+        value: models/parakeet-Q4_K_M.gguf
       - key: GEMMA_GGUF_URL
         value: https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF/resolve/main/gemma-4-E2B-it-IQ4_XS.gguf
-      - key: PARAKEET_GGUF_URL
-        value: https://huggingface.co/handy-computer/parakeet-tdt-0.6b-v3-gguf/resolve/main/parakeet-tdt-0.6b-v3-Q4_K_M.gguf
       - key: SESSION_BACKUP
         value: opt-in

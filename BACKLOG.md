@@ -13,7 +13,8 @@
 
 * [x] **B1 — Scaffold** (`completed`): Vite+TS+Tailwind PWA shell, MIT LICENSE, README, `render.yaml` web service (sleep-when-idle), `.gitignore`, health endpoint.
 * [x] **B2 — On-device AI layer** (`completed` 2026-10-14): Dexie-free IDB store (sessions/turns, export/import, 6 tests), pure 16 kHz downsample + WAV encoder (6 tests), wllama Gemma loader (CDN, IDB-cached, 4K ctx), mic→WAV capture with level meter + VAD stop, UI wired to IDB + export. 31/31 tests green.
-* [ ] **B2b — Parakeet WASM vendoring** (`pending`, open risk): bundle whisper.cpp/transcribe.cpp parakeet WASM so `transcribeWav16k()` returns `{ready:true}`. Native path proven (S3). UI degrades honestly until then.
+* [x] **B2b — Parakeet server path on Render credits** (`completed` 2026-10-14): `POST /api/transcribe?consent=1` runs `transcribe-cli` (Q4_K_M) server-side, opt-in only, 12 MB cap (~5 min), tmp cleaned. Proven live: perfect transcript on Librispeech sample via HTTP. render.yaml builds binary + fetches model, plan `standard` (2 GB; 1.15 GB peak — starter would OOM). Client: server checkbox → upload → auto-submit; no-consent calls never leave the device. WASM in-browser build remains the long-term goal.
+* [ ] **B2c — Parakeet WASM vendoring** (`pending`, long-term): bundle whisper.cpp/transcribe.cpp parakeet WASM so transcription runs fully on-device.
 * [ ] **B3 — Mastra server** (`pending`): 3 agents + 3 tools + workflows + eval harness, anonymous `requestContext`, opt-in backup API.
 * [ ] **B4 — Interview UI** (`pending`): professional Upload → 1Q + auto-grow voice textbox → Eval → Plan screens; IDB sessions; export/import.
 * [ ] **B5 — Deploy proof** (`pending`): Render deploy, cold-start log, Lighthouse + PWA check, demo video/GIF.
