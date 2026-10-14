@@ -5,61 +5,145 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Placement Prep Coach — resume-aware mock interviews, on-device</title>
 <script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
+  :root { --neon: #00e676; }
+  * { font-family: "Space Grotesk", system-ui, sans-serif; }
+  body {
+    background: #000;
+    background-image:
+      radial-gradient(900px 500px at 15% -5%, rgba(0,230,118,.14), transparent 60%),
+      radial-gradient(800px 500px at 90% 110%, rgba(0,230,118,.10), transparent 60%),
+      radial-gradient(600px 400px at 85% 10%, rgba(0,200,255,.06), transparent 60%);
+    min-height: 100vh;
+  }
+  .glass {
+    background: rgba(255,255,255,.045);
+    border: 1px solid rgba(0,230,118,.22);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    box-shadow: 0 8px 40px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.08);
+  }
+  .neon-text {
+    background: linear-gradient(120deg, #eafff3, var(--neon) 55%, #00b359);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .neon-btn {
+    background: linear-gradient(135deg, #00e676, #00a152);
+    color: #00130a; transition: transform .12s ease, box-shadow .2s ease, filter .2s;
+    box-shadow: 0 0 24px rgba(0,230,118,.35);
+  }
+  .neon-btn:hover { filter: brightness(1.08); box-shadow: 0 0 34px rgba(0,230,118,.5); }
+  .neon-btn:active { transform: scale(.95); }
+  .ghost-btn { transition: transform .12s ease, background .2s; }
+  .ghost-btn:active { transform: scale(.95); }
+  .screen { display: none; }
+  .screen.active { display: block; animation: screenIn .45s cubic-bezier(.22,.8,.3,1); }
+  @keyframes screenIn { from { opacity: 0; transform: translateY(26px) scale(.99); } to { opacity: 1; transform: none; } }
+  .q-enter { animation: qIn .5s cubic-bezier(.22,.8,.3,1); }
+  @keyframes qIn {
+    from { opacity: 0; transform: translateX(60px); filter: blur(6px); }
+    to { opacity: 1; transform: none; filter: none; }
+  }
+  .speak-ring { transition: transform .15s ease; }
+  .speak-ring:active { transform: scale(.92); }
+  .recording { animation: recPulse 1.6s ease-in-out infinite; }
+  @keyframes recPulse {
+    0%,100% { box-shadow: 0 0 0 0 rgba(0,230,118,.45), 0 0 44px rgba(0,230,118,.35); }
+    50% { box-shadow: 0 0 0 18px rgba(0,230,118,0), 0 0 70px rgba(0,230,118,.55); }
+  }
+  .fade-up { animation: fadeUp .4s ease both; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
   textarea { field-sizing: content; }
-  .card { border-radius: 1rem; }
+  input[type="file"]::file-selector-button {
+    margin-right: .75rem; padding: .5rem 1rem; border-radius: .6rem; border: 0;
+    background: linear-gradient(135deg,#00e676,#00a152); color: #00130a; font-weight: 600; cursor: pointer;
+  }
+  input[type="file"]::file-selector-button:active { transform: scale(.95); }
 </style>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen">
-<header class="max-w-4xl mx-auto px-4 pt-10 pb-4 flex items-center justify-between">
+<body class="text-slate-100 min-h-screen flex flex-col">
+
+<header class="max-w-3xl w-full mx-auto px-4 pt-8 pb-2 flex items-center justify-between">
   <div>
-    <h1 class="text-3xl font-bold tracking-tight">Placement Prep Coach</h1>
-    <p class="text-slate-400 mt-1">Resume-aware mock interviews. Gemma + Parakeet run on your device — nothing uploads by default.</p>
+    <h1 class="text-2xl font-bold tracking-tight">Placement <span class="neon-text">Prep Coach</span></h1>
+    <p class="text-slate-400 text-sm mt-0.5">On-device mock interviews · nothing uploads by default</p>
   </div>
-  <span id="modeBadge" class="text-xs px-3 py-1 rounded-full bg-slate-800 text-slate-300 border border-slate-700">mode: …</span>
+  <span id="modeBadge" class="text-[11px] px-3 py-1 rounded-full glass text-emerald-300">mode: …</span>
 </header>
-<main class="max-w-4xl mx-auto px-4 pb-16 grid gap-4">
-  <section class="card bg-slate-900 border border-slate-800 p-5" aria-label="Setup">
-    <h2 class="font-semibold mb-3">1 · Upload resume PDF + job description</h2>
-    <label class="block text-sm">Resume PDF
-      <input id="pdf" type="file" accept="application/pdf,.pdf"
-        class="mt-1 block w-full text-sm text-slate-400 file:mr-3 file:px-4 file:py-2 file:rounded-lg file:border-0 file:bg-indigo-500 file:text-white hover:file:bg-indigo-400" />
-    </label>
-    <p id="pdfStatus" class="text-xs text-slate-400 mt-1">Text is extracted on-device (PDF layer, OCR fallback for scans). You can still edit below.</p>
-    <div class="grid md:grid-cols-2 gap-3 mt-2">
-      <label class="block text-sm">Resume text
-        <textarea id="resume" rows="8" class="mt-1 w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-sm" placeholder="Paste resume text"></textarea>
+
+<main class="max-w-3xl w-full mx-auto px-4 pb-16 flex-1">
+
+  <!-- SCREEN 1 · setup -->
+  <section id="screen-setup" class="screen active">
+    <div class="glass rounded-3xl p-6 md:p-8 mt-4">
+      <h2 class="text-xl font-semibold">Set up your mock</h2>
+      <p class="text-slate-400 text-sm mt-1">Upload your CV, paste the JD, tell us the role. Everything stays on this device.</p>
+      <label class="block mt-5 text-sm font-medium">CV (PDF)
+        <input id="pdf" type="file" accept="application/pdf,.pdf"
+          class="mt-2 block w-full text-sm text-slate-400 glass rounded-xl p-3" />
       </label>
-      <label class="block text-sm">Job description
-        <textarea id="jd" rows="8" class="mt-1 w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-sm" placeholder="Paste the JD you are targeting"></textarea>
+      <p id="pdfStatus" class="text-xs text-slate-400 mt-1.5">Text extracts on-device (OCR fallback for scans).</p>
+      <div class="grid md:grid-cols-2 gap-3 mt-3">
+        <label class="block text-sm font-medium">CV text <span class="text-slate-500 font-normal">(editable)</span>
+          <textarea id="resume" rows="7" class="mt-1.5 w-full bg-black/40 border border-emerald-500/20 rounded-xl p-3 text-sm" placeholder="…or paste your resume here"></textarea>
+        </label>
+        <label class="block text-sm font-medium">Job description
+          <textarea id="jd" rows="7" class="mt-1.5 w-full bg-black/40 border border-emerald-500/20 rounded-xl p-3 text-sm" placeholder="Paste the JD"></textarea>
+        </label>
+      </div>
+      <label class="block mt-3 text-sm font-medium">Applied role
+        <input id="role" class="mt-1.5 w-full bg-black/40 border border-emerald-500/20 rounded-xl p-3 text-sm" placeholder="e.g. SDE Intern" />
       </label>
+      <button id="proceed" class="neon-btn mt-5 w-full py-3.5 rounded-2xl font-bold text-lg">Proceed →</button>
+      <p class="text-[11px] text-slate-500 mt-3">Models: Gemma IQ4_XS (Apache-2.0) + Parakeet Q4_K_M (CC-BY-4.0) · <span id="modelStatus">eval: server fallback</span></p>
     </div>
-    <div class="mt-3 flex gap-2 items-center">
-      <input id="role" class="flex-1 bg-slate-950 border border-slate-700 rounded-lg p-2 text-sm" placeholder="Target role (e.g. SDE intern)" />
-      <button id="start" class="px-4 py-2 rounded-lg bg-indigo-500 hover:bg-indigo-400 font-medium">Start mock</button>
-    </div>
-    <p id="modelStatus" class="text-xs text-slate-400 mt-2">Eval: server fallback. On-device Gemma loads lazily (~2.98 GB, cached after first download).</p>
   </section>
-  <section class="card bg-slate-900 border border-slate-800 p-5" aria-label="Interview" aria-live="polite">
-    <h2 class="font-semibold mb-3">2 · Interview — one question at a time</h2>
-    <div id="question" class="text-lg leading-relaxed bg-slate-950 border border-slate-800 rounded-lg p-4 min-h-[4rem]">Press “Start mock”.</div>
-    <div class="h-2 mt-3 rounded bg-slate-800 overflow-hidden" aria-hidden="true"><div id="level" class="h-full bg-emerald-400" style="width:0%"></div></div>
-    <label class="block mt-3 text-sm">Your answer (type or dictate)
-      <textarea id="answer" rows="4" class="mt-1 w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-sm" placeholder="Speak or type — transcript lands here, editable before submit"></textarea>
-    </label>
-    <div class="mt-2 flex flex-wrap gap-2">
-      <button id="mic" class="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700">🎙 Dictate</button>
-      <button id="submit" class="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-medium">Submit answer</button>
-      <button id="export" class="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700">Export session</button>
+
+  <!-- SCREEN 2 · interview -->
+  <section id="screen-interview" class="screen">
+    <div class="flex items-center justify-between mt-4 mb-3">
+      <span id="qCount" class="text-xs px-3 py-1 rounded-full glass text-emerald-300">Q1 / 5</span>
+      <label class="text-xs flex gap-1.5 items-center text-slate-400"><input type="checkbox" id="backup" class="accent-emerald-400" /> server backup</label>
     </div>
-    <div id="feedback" class="mt-3 text-sm text-slate-300"></div>
+    <div class="glass rounded-3xl p-6 md:p-10">
+      <div id="question" class="text-xl md:text-2xl leading-relaxed font-medium min-h-[7rem]"></div>
+      <div id="feedback" class="mt-4 text-sm text-slate-300 hidden"></div>
+      <button id="typeToggle" class="ghost-btn mt-3 text-xs text-slate-400 underline underline-offset-4 hidden">type instead</button>
+      <textarea id="answer" rows="3" class="hidden mt-2 w-full bg-black/40 border border-emerald-500/20 rounded-xl p-3 text-sm" placeholder="Type your answer"></textarea>
+    </div>
+    <div class="flex flex-col items-center mt-6">
+      <div class="relative">
+        <svg width="168" height="168" viewBox="0 0 168 168" class="-rotate-90">
+          <circle cx="84" cy="84" r="72" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="8"/>
+          <circle id="timerArc" cx="84" cy="84" r="72" fill="none" stroke="#00e676" stroke-width="8"
+            stroke-linecap="round" stroke-dasharray="452.4" stroke-dashoffset="0"/>
+        </svg>
+        <button id="speak" class="speak-ring glass absolute inset-[26px] rounded-full font-bold text-lg flex flex-col items-center justify-center gap-1">
+          <span id="speakIcon" class="text-3xl">🎙</span>
+          <span id="timerText" class="text-emerald-300 text-base tabular-nums">3:00</span>
+        </button>
+      </div>
+      <p id="speakHint" class="text-slate-400 text-sm mt-3">Tap to speak — timer auto-submits at 0:00, or tap stop to finish early</p>
+      <button id="stopBtn" class="ghost-btn hidden mt-3 px-6 py-2 rounded-xl bg-red-500/15 border border-red-500/40 text-red-300 font-medium">■ Stop &amp; submit</button>
+    </div>
   </section>
-  <section class="card bg-slate-900 border border-slate-800 p-5" aria-label="Privacy">
-    <h2 class="font-semibold mb-2">Privacy</h2>
-    <p class="text-sm text-slate-400">Sessions live in IndexedDB on this device. Server backup is off unless you opt in. Models: Gemma IQ4_XS (Apache-2.0) + Parakeet Q4_K_M (CC-BY-4.0).</p>
-    <label class="text-sm flex gap-2 items-center mt-2"><input type="checkbox" id="backup" class="accent-emerald-400" /> Opt in to server backup (explicit consent)</label>
+
+  <!-- SCREEN 3 · report -->
+  <section id="screen-report" class="screen">
+    <div class="glass rounded-3xl p-6 md:p-8 mt-4">
+      <h2 class="text-xl font-semibold">Your <span class="neon-text">report</span></h2>
+      <p id="avgScore" class="text-slate-400 text-sm mt-1"></p>
+      <div id="reportList" class="grid gap-3 mt-4"></div>
+      <div class="flex flex-wrap gap-2 mt-5">
+        <button id="export" class="neon-btn px-5 py-2.5 rounded-xl font-semibold">Export session</button>
+        <button id="restart" class="ghost-btn px-5 py-2.5 rounded-xl bg-white/5 border border-white/10">New mock</button>
+      </div>
+    </div>
   </section>
 </main>
+
 <script type="module">
 import { saveSession, appendTurn, exportSession } from "/src/ai/store.js";
 import { captureSpeech16kWav, transcribeWav16k, createResidency } from "/src/ai/loaders.js";
@@ -67,12 +151,28 @@ import { describeMode } from "/src/ai/modelRouter.js";
 import { intakeResumePdf } from "/src/ai/resumePdf.js";
 
 const $ = (id) => document.getElementById(id);
-let sessionId = null, turn = 0, profile = {}, currentQ = "";
+const TOTAL_Q = 5, ANSWER_SEC = 180;
+let sessionId = null, profile = {}, results = [], qIndex = 0, currentQ = "";
+let recording = false, timerId = null, remain = ANSWER_SEC;
+
+function show(name) {
+  for (const s of document.querySelectorAll(".screen")) s.classList.remove("active");
+  $("screen-" + name).classList.add("active");
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
 let residency = null;
 try {
-  residency = createResidency((e) => { $("modelStatus").textContent = `models: ${e.type} ${e.model || ""} (${e.mode || ""})`; });
-  $("modeBadge").textContent = "mode: " + residency.mode + " — " + describeMode(residency.mode);
+  residency = createResidency((e) => { $("modelStatus").textContent = `models: ${e.type} ${e.model || ""}`; });
+  $("modeBadge").textContent = "mode: " + residency.mode;
 } catch { $("modeBadge").textContent = "mode: swap"; }
+
+function setQuestion(text) {
+  const q = $("question");
+  q.classList.remove("q-enter"); void q.offsetWidth; // restart animation
+  q.textContent = text; q.classList.add("q-enter");
+  $("qCount").textContent = `Q${qIndex + 1} / ${TOTAL_Q}`;
+  $("feedback").classList.add("hidden"); $("feedback").textContent = "";
+}
 
 $("pdf").onchange = async (e) => {
   const file = e.target.files?.[0];
@@ -83,63 +183,148 @@ $("pdf").onchange = async (e) => {
       $("pdfStatus").textContent = `${p.phase === "ocr" ? "OCR scanning" : "Extracting text"} page ${p.page}/${p.of}…`;
     });
     $("resume").value = text;
-    $("resume").dispatchEvent(new Event("input"));
-    $("pdfStatus").textContent = `Done: ${pages} page(s), ${text.length} chars via ${method === "ocr" ? "OCR (scan detected)" : "text layer"}. Edit below if needed.`;
+    $("pdfStatus").textContent = `Done: ${pages} page(s), ${text.length} chars via ${method === "ocr" ? "OCR (scan)" : "text layer"}.`;
   } catch (err) {
-    $("pdfStatus").textContent = "Couldn't read that PDF (" + err.message + ") — paste the text below instead.";
+    $("pdfStatus").textContent = "Couldn't read that PDF (" + err.message + ") — paste text instead.";
   }
 };
-$("start").onclick = async () => {
-  const r = await fetch("/api/session", { method: "POST", headers: {"Content-Type":"application/json"},
+
+$("proceed").onclick = async () => {
+  if (!$("resume").value.trim()) { $("pdfStatus").textContent = "Upload a CV or paste resume text first."; return; }
+  $("proceed").textContent = "Preparing…";
+  const r = await fetch("/api/session", { method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ resumeText: $("resume").value, jd: $("jd").value, role: $("role").value }) });
   const d = await r.json();
-  sessionId = d.sessionId; profile = d.profile; currentQ = d.question; turn = 0;
-  $("question").textContent = currentQ; $("feedback").textContent = ""; $("answer").value = "";
-  await saveSession({ id: sessionId, profile, jd: $("jd").value, role: $("role").value, turn: 0, createdAt: new Date().toISOString() }).catch(()=>{});
-  await appendTurn(sessionId, { role: "assistant", text: currentQ }).catch(()=>{});
+  sessionId = d.sessionId; profile = d.profile; currentQ = d.question; qIndex = 0; results = [];
+  await saveSession({ id: sessionId, profile, jd: $("jd").value, role: $("role").value, turn: 0, createdAt: new Date().toISOString() }).catch(() => {});
+  await appendTurn(sessionId, { role: "assistant", text: currentQ }).catch(() => {});
+  $("proceed").textContent = "Proceed →";
+  setQuestion(currentQ); resetTimerUI(); show("interview");
 };
-$("submit").onclick = async () => {
-  const ans = $("answer").value;
-  if (!ans.trim()) { $("feedback").textContent = "Answer is empty — say a line first."; return; }
-  $("feedback").textContent = "Evaluating… (one LLM call: score + next question)";
-  const r = await fetch("/api/turn", { method: "POST", headers: {"Content-Type":"application/json"},
-    body: JSON.stringify({ question: currentQ, answer: ans, profile, jd: $("jd").value, turn }) });
-  const d = await r.json();
-  if (d.error) { $("feedback").textContent = d.error; return; }
-  turn += 1; currentQ = d.nextQuestion;
-  $("feedback").innerHTML = `<b>Score ${d.eval.score}/10.</b> Strengths: ${(d.eval.strengths||[]).join("; ")||"—"}. Gaps: ${(d.eval.gaps||[]).join("; ")||"—"}.<br/>Rewrite hint: ${d.eval.rewrite}`;
-  $("question").textContent = currentQ; $("answer").value = "";
-  if (sessionId) {
-    await appendTurn(sessionId, { role: "user", text: ans, score: d.eval.score }).catch(()=>{});
-    await appendTurn(sessionId, { role: "assistant", text: currentQ }).catch(()=>{});
-    if ($("backup").checked) {
-      await fetch("/api/sessions/"+sessionId, { method: "PUT", headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({ consent: true, turn, profile }) });
-    }
-  }
-};
-let dictating = false;
-$("mic").onclick = async () => {
-  if (dictating) { captureSpeech16kWav.stop?.(); return; }
-  dictating = true; $("mic").textContent = "⏹ Stop";
+
+function resetTimerUI() {
+  clearInterval(timerId); recording = false; remain = ANSWER_SEC;
+  $("timerText").textContent = "3:00";
+  $("timerArc").style.strokeDashoffset = "0";
+  $("speakIcon").textContent = "🎙"; $("speak").classList.remove("recording");
+  $("stopBtn").classList.add("hidden");
+  $("speakHint").textContent = "Tap to speak — timer auto-submits at 0:00, or tap stop to finish early";
+}
+function tick() {
+  remain--;
+  const m = Math.floor(remain / 60), s = remain % 60;
+  $("timerText").textContent = `${m}:${String(s).padStart(2, "0")}`;
+  $("timerArc").style.strokeDashoffset = String(452.4 * (1 - remain / ANSWER_SEC));
+  if (remain <= 0) finishAnswer(true);
+}
+$("speak").onclick = async () => {
+  if (recording) { finishAnswer(false); return; }
+  recording = true;
+  $("speakIcon").textContent = "⏺"; $("speak").classList.add("recording");
+  $("stopBtn").classList.remove("hidden");
+  $("speakHint").textContent = "Listening… tap the button or Stop to submit early";
+  timerId = setInterval(tick, 1000);
   try {
-    const wav = await captureSpeech16kWav({ onLevel: (p) => { $("level").style.width = Math.min(100, p*300)+"%"; } });
-    const t = await transcribeWav16k(wav);
-    $("feedback").textContent = t.ready ? t.text
-      : `Captured ${(wav.length/1024).toFixed(0)} KB @16 kHz. On-device transcription lands with the Parakeet WASM build (in progress) — type or paste your answer for now.`;
+    pendingCapture = captureSpeech16kWav({ maxSec: ANSWER_SEC, onLevel: () => {} });
+    const wav = await pendingCapture;
+    pendingCapture = null;
+    if (!recording) return; // already submitted by timer
+    await submitAudio(wav);
   } catch (e) {
-    $("feedback").textContent = "Mic unavailable: " + (e.message || e) + ". Type your answer instead.";
+    if (!recording) return;
+    recording = false; clearInterval(timerId); pendingCapture = null;
+    $("speakIcon").textContent = "🎙"; $("speak").classList.remove("recording");
+    $("stopBtn").classList.add("hidden"); resetTimerSoft();
+    $("speakHint").textContent = "Mic unavailable (" + (e.message || e) + ") — use “type instead”.";
+    $("typeToggle").classList.remove("hidden");
   }
-  dictating = false; $("mic").textContent = "🎙 Dictate"; $("level").style.width = "0%";
 };
+$("stopBtn").onclick = () => finishAnswer(false);
+$("typeToggle").onclick = () => { $("answer").classList.toggle("hidden"); };
+
+async function finishAnswer(auto) {
+  if (!recording) return;
+  recording = false; clearInterval(timerId);
+  captureSpeech16kWav.stop?.();
+  $("speakIcon").textContent = "🎙"; $("speak").classList.remove("recording");
+  $("stopBtn").classList.add("hidden");
+  const typed = $("answer").value.trim();
+  $("answer").value = ""; $("answer").classList.add("hidden");
+  if (typed) return submitText(typed, auto);
+  $("speakHint").textContent = auto ? "Time! Processing…" : "Processing…";
+  captureSpeech16kWav.stop?.();
+  const wav = await pendingCapture;
+  pendingCapture = null;
+  await submitAudio(wav, auto);
+}
+let pendingCapture = null;
+
+async function submitAudio(wav, auto) {
+  const t = await transcribeWav16k(wav).catch(() => ({ ready: false }));
+  if (!t.ready) {
+    $("speakHint").textContent = "On-device transcription lands with the Parakeet WASM build — type your answer for now.";
+    $("typeToggle").classList.remove("hidden");
+    $("answer").classList.remove("hidden"); $("answer").focus();
+    resetTimerSoft();
+    $("submitTyped")?.remove();
+    const b = document.createElement("button");
+    b.id = "submitTyped"; b.textContent = "Submit typed answer";
+    b.className = "neon-btn mt-3 px-6 py-2 rounded-xl font-semibold";
+    b.onclick = () => { const v = $("answer").value.trim(); if (v) { b.remove(); submitText(v, auto); } };
+    $("speakHint").after(b);
+    return;
+  }
+  return submitText(t.text, auto);
+}
+function resetTimerSoft() {
+  remain = ANSWER_SEC; $("timerText").textContent = "3:00";
+  $("timerArc").style.strokeDashoffset = "0";
+}
+
+async function submitText(answer, auto) {
+  $("speakHint").textContent = auto ? "Time! Evaluating…" : "Evaluating… (one LLM call: score + next question)";
+  const r = await fetch("/api/turn", { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ question: currentQ, answer, profile, jd: $("jd").value, turn: qIndex }) });
+  const d = await r.json();
+  results.push({ q: currentQ, a: answer, score: d.eval?.score ?? 0, gaps: d.eval?.gaps || [], rewrite: d.eval?.rewrite || "" });
+  await appendTurn(sessionId, { role: "user", text: answer, score: d.eval?.score }).catch(() => {});
+  if ($("backup").checked && sessionId) {
+    await fetch("/api/sessions/" + sessionId, { method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ consent: true, turn: qIndex, profile }) });
+  }
+  qIndex++;
+  if (qIndex >= TOTAL_Q) return showReport();
+  currentQ = d.nextQuestion;
+  await appendTurn(sessionId, { role: "assistant", text: currentQ }).catch(() => {});
+  const fb = $("feedback");
+  fb.classList.remove("hidden");
+  fb.innerHTML = `<span class="text-emerald-300 font-semibold">Score ${d.eval.score}/10.</span> <span class="fade-up inline-block">${d.eval.rewrite}</span>`;
+  setTimeout(() => { setQuestion(currentQ); resetTimerUI(); }, 2200);
+}
+
+function showReport() {
+  const avg = (results.reduce((a, r) => a + r.score, 0) / results.length).toFixed(1);
+  $("avgScore").textContent = `Average score ${avg}/10 across ${results.length} answers.`;
+  $("reportList").innerHTML = results.map((r, i) => `
+    <div class="fade-up rounded-2xl bg-black/40 border border-emerald-500/20 p-4" style="animation-delay:${i * 90}ms">
+      <div class="flex justify-between items-center gap-2">
+        <b class="text-sm">Q${i + 1}</b>
+        <span class="text-xs px-2.5 py-1 rounded-full ${r.score >= 7 ? "bg-emerald-500/15 text-emerald-300" : "bg-amber-500/15 text-amber-300"}">${r.score}/10</span>
+      </div>
+      <p class="text-sm text-slate-300 mt-1.5">${r.q}</p>
+      <p class="text-xs text-slate-500 mt-1.5">${r.rewrite}</p>
+    </div>`).join("");
+  show("report");
+}
 $("export").onclick = async () => {
-  if (!sessionId) return;
-  const bundle = await exportSession(sessionId).catch(()=>null);
-  if (!bundle) { $("feedback").textContent = "Nothing to export yet."; return; }
-  const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: "application/json" });
+  const { exportSession: exp } = await import("/src/ai/store.js");
+  const bundle = await exp(sessionId).catch(() => null);
+  if (!bundle) return;
   const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob); a.download = sessionId + ".json"; a.click();
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(bundle, null, 2)], { type: "application/json" }));
+  a.download = sessionId + ".json"; a.click();
 };
+$("restart").onclick = () => { resetTimerUI(); show("setup"); };
 for (const t of document.querySelectorAll("textarea")) {
   t.addEventListener("input", () => { t.style.height = "auto"; t.style.height = t.scrollHeight + "px"; });
 }

@@ -47,9 +47,11 @@ export async function getSession(id) {
   return row || null;
 }
 
+let seq = 0; // monotonic suffix: same-ms appends keep insertion order under tid sort
+
 export async function appendTurn(sid, turn) {
   const db = await openDb();
-  const row = { ...turn, sid, tid: `${sid}:${Date.now().toString(36)}:${Math.floor(Math.random() * 1e6)}` };
+  const row = { ...turn, sid, tid: `${sid}:${Date.now().toString(36)}:${String(seq++).padStart(6, "0")}` };
   await tx(db, ["turns"], "readwrite", (t) => t.objectStore("turns").put(row));
   db.close();
   return row.tid;
