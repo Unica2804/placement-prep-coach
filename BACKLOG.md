@@ -4,14 +4,14 @@
 
 ## 1. Spikes (test-first, must run before UI/infra)
 
-* [ ] **S1 — Gemma resume-parse matrix** (`pending`): 3 samples (clean txt / text PDF / scanned image) × `gemma-4-E2B-it-IQ4_XS.gguf` via wllama. Record field recall, tok/s, memory. Pass: clean >90%, PDF >70%.
+* [ ] **S1 — Gemma resume-parse matrix** (`in_progress`): 3 samples (clean txt / text PDF / scanned image) × `gemma-4-E2B-it-IQ4_XS.gguf` via wllama. Record field recall, tok/s, memory. Pass: clean >90%, PDF >70%.
 * [ ] **S2 — OCR fallback probe** (`pending`): only if S1 scanned fails. PDF.js layer → Tesseract.js eng → re-run S1. Record lift.
-* [ ] **S3 — Parakeet transcription** (`pending`): 30 s clean/noisy/accented 16 kHz samples × `parakeet-tdt-0.6b-v3-Q4_K_M.gguf` WASM. Record WER, cached load time, RTF. Pass: WER <10% clean, <2× realtime.
+* [x] **S3 — Parakeet transcription** (`completed` 2026-10-14): `parakeet-tdt-0.6b-v3-Q4_K_M.gguf` (463 MB) via transcribe.cpp `transcribe-cli` (CPU). 7.4 s clean → perfect transcript + punct/caps + word timestamps, 285 ms infer (26× RT), WER 0%. Same clip + white noise → identical transcript (noise-robust). 59.5 s concat → 2.6 s (23× RT), peak RSS 1.15 GB. Model load ~0.5 s from SSD. Implication: fits 2–4 GB budget; unload STT before loading Gemma LLM. WASM browser build still open (native proven here).
 * [ ] **S4 — Mastra + Render overlap** (`pending`): `parseResume/nextQuestion/scoreAnswer` validation, trace journal, cold-start vs weight-download overlap, `/healthz` wake.
 
 ## 2. Build
 
-* [ ] **B1 — Scaffold** (`pending`): Vite+TS+Tailwind PWA shell, MIT LICENSE, README, `render.yaml` web service (sleep-when-idle), `.gitignore`, health endpoint.
+* [x] **B1 — Scaffold** (`completed`): Vite+TS+Tailwind PWA shell, MIT LICENSE, README, `render.yaml` web service (sleep-when-idle), `.gitignore`, health endpoint.
 * [ ] **B2 — On-device AI layer** (`pending`): wllama loader + progress/resume, Parakeet WASM loader, mic→WAV→VAD pipeline, OCR flag.
 * [ ] **B3 — Mastra server** (`pending`): 3 agents + 3 tools + workflows + eval harness, anonymous `requestContext`, opt-in backup API.
 * [ ] **B4 — Interview UI** (`pending`): professional Upload → 1Q + auto-grow voice textbox → Eval → Plan screens; IDB sessions; export/import.
