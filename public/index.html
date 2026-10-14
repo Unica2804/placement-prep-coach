@@ -20,8 +20,13 @@
 </header>
 <main class="max-w-4xl mx-auto px-4 pb-16 grid gap-4">
   <section class="card bg-slate-900 border border-slate-800 p-5" aria-label="Setup">
-    <h2 class="font-semibold mb-3">1 · Paste resume + job description</h2>
-    <div class="grid md:grid-cols-2 gap-3">
+    <h2 class="font-semibold mb-3">1 · Upload resume PDF + job description</h2>
+    <label class="block text-sm">Resume PDF
+      <input id="pdf" type="file" accept="application/pdf,.pdf"
+        class="mt-1 block w-full text-sm text-slate-400 file:mr-3 file:px-4 file:py-2 file:rounded-lg file:border-0 file:bg-indigo-500 file:text-white hover:file:bg-indigo-400" />
+    </label>
+    <p id="pdfStatus" class="text-xs text-slate-400 mt-1">Text is extracted on-device (PDF layer, OCR fallback for scans). You can still edit below.</p>
+    <div class="grid md:grid-cols-2 gap-3 mt-2">
       <label class="block text-sm">Resume text
         <textarea id="resume" rows="8" class="mt-1 w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-sm" placeholder="Paste resume text"></textarea>
       </label>
@@ -59,6 +64,7 @@
 import { saveSession, appendTurn, exportSession } from "/src/ai/store.js";
 import { captureSpeech16kWav, transcribeWav16k, createResidency } from "/src/ai/loaders.js";
 import { describeMode } from "/src/ai/modelRouter.js";
+import { intakeResumePdf } from "/src/ai/resumePdf.js";
 
 const $ = (id) => document.getElementById(id);
 let sessionId = null, turn = 0, profile = {}, currentQ = "";
@@ -68,6 +74,21 @@ try {
   $("modeBadge").textContent = "mode: " + residency.mode + " — " + describeMode(residency.mode);
 } catch { $("modeBadge").textContent = "mode: swap"; }
 
+$("pdf").onchange = async (e) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  $("pdfStatus").textContent = "Reading PDF on-device…";
+  try {
+    const { text, pages, method } = await intakeResumePdf(file, (p) => {
+      $("pdfStatus").textContent = `${p.phase === "ocr" ? "OCR scanning" : "Extracting text"} page ${p.page}/${p.of}…`;
+    });
+    $("resume").value = text;
+    $("resume").dispatchEvent(new Event("input"));
+    $("pdfStatus").textContent = `Done: ${pages} page(s), ${text.length} chars via ${method === "ocr" ? "OCR (scan detected)" : "text layer"}. Edit below if needed.`;
+  } catch (err) {
+    $("pdfStatus").textContent = "Couldn't read that PDF (" + err.message + ") — paste the text below instead.";
+  }
+};
 $("start").onclick = async () => {
   const r = await fetch("/api/session", { method: "POST", headers: {"Content-Type":"application/json"},
     body: JSON.stringify({ resumeText: $("resume").value, jd: $("jd").value, role: $("role").value }) });
