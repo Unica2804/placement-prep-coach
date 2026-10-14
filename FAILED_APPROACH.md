@@ -15,3 +15,4 @@
 * **F6 — GGUF loaded without a WASM-capable runtime:** raw `.gguf` fetch with no wllama / transcribe.cpp / whisper.cpp WASM build will not run in-browser. Spike it properly or stop and consult owner.
 * **F7 — Static-only Mastra hack as default:** superseded by Render Web Service decision — do not bundle `@mastra/core` into the browser as the primary design. Mastra runs native in Node.
 * **F8 — PII-by-default to server:** resume text/audio must never upload without explicit opt-in backup toggle. Any "backup always on" design is banned.
+* **F9 — LLM call per keystroke / partial transcript / turn sub-step:** each load costs 3.3 s and forces a swap on small machines. Exactly one LLM call per turn (eval + next question in one generation). Live-coaching-while-speaking is banned until single-model audio (Gemma native ASR) is proven.

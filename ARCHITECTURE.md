@@ -43,7 +43,31 @@ Fallbacks (feature-flagged, need owner approval to become default): OCR via Tess
 * Default zero-egress: prove with network tab. Open weights make $0/run business viable, keep student PII off third-party servers, allow weight swaps without vendor lock-in.
 * Licenses: Apache-2.0 (Gemma GGUF) + CC-BY-4.0 (Parakeet) + MIT (our code) — all permissive, commercial-use compatible.
 
-## 6. Test-first spikes (run before UI/infra)
+## 6. Residency router (RAM-based, avoids per-turn load/unload latency)
+
+Swap costs ~3.8 s/turn (Gemma 3.3 s + Parakeet 0.5 s); both resident costs
+~5.4 GB. The router picks one strategy at startup and can downgrade at runtime.
+
+```
+RAM unknown  → assume small  → swap
+WebGPU present → gpu-resident (Gemma in VRAM, Parakeet on CPU, no swaps)
+navigator.deviceMemory >= 8 → ram-resident (both resident, no swaps)
+else → swap at turn boundaries only
+```
+
+Notes:
+
+* `navigator.deviceMemory` returns coarse buckets (…, 4, 8), never 6 — so the
+  effective threshold is 8, not 6. Missing API (Firefox/Safari) = assume swap.
+* Swap schedule: transcribe (Parakeet resident) → swap → ONE Gemma call
+  (eval + next question together) → Gemma idles through the human
+  read/think/speak phase → swap back (0.5 s) → transcribe. ~4 s overhead per
+  60–90 s turn, masked by "evaluating…" UI.
+* One LLM call per turn, ever. No LLM on partial transcripts or keystrokes.
+* Runtime downgrade: any model-load OOM/failure in resident mode falls back to
+  swap automatically and records it in the session trace.
+
+## 7. Test-first spikes (run before UI/infra)
 
 * Spike 1 (Gemma resume): 3 resumes × IQ4_XS via wllama; record recall, tok/s, VRAM/RAM.
 * Spike 2 (Parakeet): 30 s clean/noisy/accented samples; record WER, load-from-cache time, RTF.

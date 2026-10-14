@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "node --test test/tools.test.js test/api.test.js",
+    "test": "node --test test/tools.test.js test/api.test.js test/router.test.js",
     "dev": "node src/server.js",
     "start": "node src/server.js"
   },
