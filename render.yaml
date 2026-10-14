@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: placement-prep-coach
+    runtime: node
+    plan: starter
+    autoDeploy: true
+    sleeping: true
+    healthCheckPath: /healthz
+    buildCommand: npm ci
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: GEMMA_GGUF_URL
+        value: https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF/resolve/main/gemma-4-E2B-it-IQ4_XS.gguf
+      - key: PARAKEET_GGUF_URL
+        value: https://huggingface.co/handy-computer/parakeet-tdt-0.6b-v3-gguf/resolve/main/parakeet-tdt-0.6b-v3-Q4_K_M.gguf
+      - key: SESSION_BACKUP
+        value: opt-in

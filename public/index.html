@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Placement Prep Coach — resume-aware mock interviews, on-device</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  textarea { field-sizing: content; }
+  .card { border-radius: 1rem; }
+</style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen">
+<header class="max-w-4xl mx-auto px-4 pt-10 pb-4 flex items-center justify-between">
+  <div>
+    <h1 class="text-3xl font-bold tracking-tight">Placement Prep Coach</h1>
+    <p class="text-slate-400 mt-1">Resume-aware mock interviews. Gemma + Parakeet run on your device — nothing uploads by default.</p>
+  </div>
+  <span class="text-xs px-3 py-1 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">on-device</span>
+</header>
+<main class="max-w-4xl mx-auto px-4 pb-16 grid gap-4">
+  <section class="card bg-slate-900 border border-slate-800 p-5" aria-label="Setup">
+    <h2 class="font-semibold mb-3">1 · Paste resume + job description</h2>
+    <div class="grid md:grid-cols-2 gap-3">
+      <label class="block">Resume text
+        <textarea id="resume" rows="8" class="mt-1 w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-sm" placeholder="Paste resume text (PDF parsing via Gemma lands in S1; text first)"></textarea>
+      </label>
+      <label class="block">Job description
+        <textarea id="jd" rows="8" class="mt-1 w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-sm" placeholder="Paste the JD you are targeting"></textarea>
+      </label>
+    </div>
+    <div class="mt-3 flex gap-2 items-center">
+      <input id="role" class="flex-1 bg-slate-950 border border-slate-700 rounded-lg p-2 text-sm" placeholder="Target role (e.g. SDE intern)" />
+      <button id="start" class="px-4 py-2 rounded-lg bg-indigo-500 hover:bg-indigo-400 font-medium">Start mock</button>
+    </div>
+    <p id="modelStatus" class="text-xs text-slate-400 mt-2">Server mode: rule-based fallback. On-device Gemma weights load in B2 (lazy, ~2.98 GB).</p>
+  </section>
+  <section class="card bg-slate-900 border border-slate-800 p-5" aria-label="Interview" aria-live="polite">
+    <h2 class="font-semibold mb-3">2 · Interview — one question at a time</h2>
+    <div id="question" class="text-lg leading-relaxed bg-slate-950 border border-slate-800 rounded-lg p-4 min-h-[4rem]">Press “Start mock”.</div>
+    <label class="block mt-3">Your answer (type or dictate)
+      <textarea id="answer" rows="4" class="mt-1 w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-sm" placeholder="Speak or type — mic transcription lands here, editable before submit"></textarea>
+    </label>
+    <div class="mt-2 flex flex-wrap gap-2">
+      <button id="mic" class="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700">🎙 Start dictation (Parakeet WASM lands in S3)</button>
+      <button id="submit" class="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-medium">Submit answer</button>
+    </div>
+    <div id="feedback" class="mt-3 text-sm text-slate-300"></div>
+  </section>
+  <section class="card bg-slate-900 border border-slate-800 p-5" aria-label="Privacy">
+    <h2 class="font-semibold mb-2">Privacy</h2>
+    <p class="text-sm text-slate-400">Sessions live in IndexedDB on this device. Server backup is off unless you opt in. Model weights: Gemma IQ4_XS (Apache-2.0) + Parakeet Q4_K_M (CC-BY-4.0).</p>
+    <label class="text-sm flex gap-2 items-center mt-2"><input type="checkbox" id="backup" class="accent-emerald-400" /> Opt in to server backup (explicit consent)</label>
+  </section>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+let sessionId = null, turn = 0, profile = {}, currentQ = "";
+$("start").onclick = async () => {
+  const r = await fetch("/api/session", { method: "POST", headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({ resumeText: $("resume").value, jd: $("jd").value, role: $("role").value }) });
+  const d = await r.json();
+  sessionId = d.sessionId; profile = d.profile; currentQ = d.question; turn = 0;
+  $("question").textContent = currentQ; $("feedback").textContent = ""; $("answer").value = "";
+};
+$("submit").onclick = async () => {
+  const ans = $("answer").value;
+  if (!ans.trim()) { $("feedback").textContent = "Answer is empty — say a line first."; return; }
+  const r = await fetch("/api/turn", { method: "POST", headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({ question: currentQ, answer: ans, profile, jd: $("jd").value, turn }) });
+  const d = await r.json();
+  if (d.error) { $("feedback").textContent = d.error; return; }
+  turn += 1; currentQ = d.nextQuestion;
+  $("feedback").innerHTML = `<b>Score ${d.eval.score}/10.</b> Strengths: ${(d.eval.strengths||[]).join("; ")||"—"}. Gaps: ${(d.eval.gaps||[]).join("; ")||"—"}.<br/>Rewrite hint: ${d.eval.rewrite}`;
+  $("question").textContent = currentQ; $("answer").value = "";
+  if ($("backup").checked && sessionId) {
+    await fetch("/api/sessions/"+sessionId, { method: "PUT", headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({ consent: true, turn, profile }) });
+  }
+};
+$("mic").onclick = () => { $("feedback").textContent = "On-device dictation (Parakeet Q4_K_M WASM) lands in spike S3 — mic capture stays local."; };
+for (const t of document.querySelectorAll("textarea")) {
+  t.addEventListener("input", () => { t.style.height = "auto"; t.style.height = t.scrollHeight + "px"; });
+}
+</script>
+</body>
+</html>
