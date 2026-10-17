@@ -4,7 +4,8 @@ import os from "node:os";
 import fs from "node:fs";
 import { execFile } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { runSetter, runEvaluator, runResumeParse } from "./mastra/agents.js";
+import { runSessionStart, runTurn } from "./mastra/agents.js";
+import { gemmaProvisioned } from "./ai/gemmaServer.js";
 import { TRANSCRIBE_BIN, PARAKEET_MODEL } from "./ai/sttPaths.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -18,12 +19,13 @@ const backupStore = new Map(); // opt-in only; primary store is IndexedDB on-dev
 
 const sttProvisioned = () => fs.existsSync(TRANSCRIBE_BIN) && fs.existsSync(PARAKEET_MODEL);
 
-app.get("/healthz", (_req, res) => res.status(200).json({ ok: true, stt: sttProvisioned() }));
+app.get("/healthz", (_req, res) =>
+  res.status(200).json({ ok: true, stt: sttProvisioned(), llm: gemmaProvisioned() }),
+);
 
-app.post("/api/session", (req, res) => {
+app.post("/api/session", async (req, res) => {
   const { resumeText = "", jd = "", role = "" } = req.body ?? {};
-  const profile = runResumeParse(resumeText);
-  profile.target_role = String(role || "").slice(0, 120);
+  const { profile, question, engine } = await runSessionStart({ resumeText, jd, role });
   const session = {
     id: `s_${Date.now().toString(36)}`,
     profile,
@@ -32,17 +34,21 @@ app.post("/api/session", (req, res) => {
     history: [],
     createdAt: new Date().toISOString(),
   };
-  const q = runSetter(profile, session.jd, 0);
-  session.history.push({ role: "assistant", text: q });
-  res.json({ sessionId: session.id, question: q, profile });
+  session.history.push({ role: "assistant", text: question });
+  res.json({ sessionId: session.id, question, profile, engine });
 });
 
-app.post("/api/turn", (req, res) => {
+app.post("/api/turn", async (req, res) => {
   const { question = "", answer = "", profile = {}, jd = "", turn = 0 } = req.body ?? {};
   if (!String(answer).trim()) return res.status(400).json({ error: "empty answer" });
-  const eval_ = runEvaluator(String(question), String(answer));
-  const nextQ = runSetter(profile, String(jd), Number(turn) + 1);
-  res.json({ eval: eval_, nextQuestion: nextQ });
+  const { eval: eval_, nextQuestion, engine } = await runTurn({
+    question: String(question),
+    answer: String(answer),
+    profile,
+    jd: String(jd),
+    turn: Number(turn),
+  });
+  res.json({ eval: eval_, nextQuestion, engine });
 });
 
 app.put("/api/sessions/:id", (req, res) => {

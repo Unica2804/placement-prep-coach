@@ -1,0 +1,12 @@
+# Keep the build context tiny: models are fetched inside the image and
+# dependencies are installed there too.
+models/
+node_modules/
+.git/
+.gitignore
+.github/
+*.gguf
+.env
+coverage/
+spikes/
+render.yaml

@@ -73,3 +73,24 @@ test("PUT /api/sessions requires consent", async () => {
   const ok = await call("PUT", "/api/sessions/s_1", { consent: true, turn: 1 });
   assert.equal(ok.status, 200);
 });
+
+// Graceful degradation: under test the 3 GB GGUF is gated off, so every path
+// must still answer from the deterministic rules and say which engine ran.
+test("session and turn report the engine and fall back to rules without weights", async () => {
+  const health = await call("GET", "/healthz");
+  assert.equal(health.data.stt, true);
+  assert.equal(health.data.llm, false);
+
+  const s = await call("POST", "/api/session", { resumeText: "Skills: JS\nIntern at Acme", jd: "SDE", role: "SDE" });
+  assert.equal(s.data.engine, "rules");
+  assert.ok(s.data.question);
+
+  const t = await call("POST", "/api/turn", {
+    question: s.data.question, answer: "I built a rate limiter because latency mattered, cutting p99 by 60%.",
+    profile: s.data.profile, jd: "SDE", turn: 0,
+  });
+  assert.equal(t.data.engine, "rules");
+  assert.equal(typeof t.data.eval.score, "number");
+  assert.ok(t.data.nextQuestion);
+});
+

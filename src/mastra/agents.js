@@ -1,9 +1,12 @@
 import { Agent } from "@mastra/core/agent";
 import { nextQuestion, scoreAnswer, parseResumeText } from "./tools.js";
+import { gemmaProvisioned, gemmaStart, gemmaTurn, GEMMA_ENGINE } from "../ai/gemmaServer.js";
 
-// Model calls are routed to on-device Gemma (wllama) in B2.
-// Until then these agents expose instructions + deterministic fallbacks
-// so the API, UI, and tests run without weights downloaded.
+// Server-side Gemma when the locked GGUF is present (and not under test),
+// deterministic rules otherwise. Every response says which engine ran, so the
+// UI and the demo report never overstate what produced an answer.
+// The Mastra agents below carry the instructions; the engine-aware entry
+// points are what the API calls.
 function stubModel() {
   return {
     async doGenerate() {
@@ -42,14 +45,42 @@ export const plannerAgent = new Agent({
   model: stubModel(),
 });
 
-export function runSetter(profile, jd, turn) {
-  return nextQuestion(profile, jd, turn);
+// Session start = ONE model call: parse the resume and write the opening
+// question together, so the interviewer opens in a single generation.
+export async function runSessionStart({ resumeText = "", jd = "", role = "" } = {}) {
+  if (gemmaProvisioned()) {
+    try {
+      const g = await gemmaStart({ resumeText, jd });
+      if (g) {
+        return {
+          profile: { ...g.profile, target_role: String(role || "").slice(0, 120) },
+          question: g.firstQuestion,
+          engine: GEMMA_ENGINE,
+        };
+      }
+    } catch (err) {
+      console.error("gemma session start failed, falling back to rules:", err?.message);
+    }
+  }
+  const profile = parseResumeText(resumeText);
+  profile.target_role = String(role || "").slice(0, 120);
+  return { profile, question: nextQuestion(profile, jd, 0), engine: "rules" };
 }
 
-export function runEvaluator(question, answer) {
-  return scoreAnswer(question, answer);
-}
-
-export function runResumeParse(text) {
-  return parseResumeText(text);
+// One turn = ONE model call: score the answer and ask the next question in the
+// same generation (ARCHITECTURE hard rule).
+export async function runTurn({ question = "", answer = "", profile = {}, jd = "", turn = 0 } = {}) {
+  if (gemmaProvisioned()) {
+    try {
+      const g = await gemmaTurn({ question, answer, profile, jd, turn });
+      if (g) return { eval: g.eval, nextQuestion: g.nextQuestion, engine: GEMMA_ENGINE };
+    } catch (err) {
+      console.error("gemma turn failed, falling back to rules:", err?.message);
+    }
+  }
+  return {
+    eval: scoreAnswer(question, answer),
+    nextQuestion: nextQuestion(profile, jd, Number(turn) + 1),
+    engine: "rules",
+  };
 }
