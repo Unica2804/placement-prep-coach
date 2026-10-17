@@ -78,7 +78,8 @@ test("PUT /api/sessions requires consent", async () => {
 // must still answer from the deterministic rules and say which engine ran.
 test("session and turn report the engine and fall back to rules without weights", async () => {
   const health = await call("GET", "/healthz");
-  assert.equal(health.data.stt, true);
+  // healthz must reflect what is really provisioned on this host, not a guess.
+  assert.equal(health.data.stt, sttProvisioned());
   assert.equal(health.data.llm, false);
 
   const s = await call("POST", "/api/session", { resumeText: "Skills: JS\nIntern at Acme", jd: "SDE", role: "SDE" });
