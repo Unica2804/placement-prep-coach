@@ -1,13 +1,13 @@
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import { TRANSCRIBE_BIN, PARAKEET_MODEL } from "../src/ai/sttPaths.js";
 
 process.env.NODE_ENV = "test";
 const { default: app } = await import("../src/server.js");
 
 const sttProvisioned = () =>
-  fs.existsSync(process.env.TRANSCRIBE_BIN || "/tmp/transcribe.cpp/build/bin/transcribe-cli") &&
-  fs.existsSync(process.env.PARAKEET_MODEL || "/tmp/parakeet-Q4_K_M.gguf");
+  fs.existsSync(TRANSCRIBE_BIN) && fs.existsSync(PARAKEET_MODEL);
 
 let base = "";
 let srv = null;

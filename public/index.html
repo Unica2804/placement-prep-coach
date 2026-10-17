@@ -139,7 +139,7 @@
         </button>
       </div>
       <p id="speakHint" class="text-slate-400 text-sm mt-3">Tap to speak — timer auto-submits at 0:00, or tap stop to finish early</p>
-      <label id="serverMic" class="text-xs flex gap-1.5 items-center text-slate-400 mt-2">
+      <label id="serverMic" class="hidden text-xs flex gap-1.5 items-center text-slate-400 mt-2">
         <input type="checkbox" id="serverMicBox" class="accent-emerald-400" />
         Server transcription — our Parakeet model <span class="text-slate-500">(uploads audio, opt-in)</span>
       </label>
@@ -253,6 +253,12 @@ function tick() {
 }
 let cloudStop = null;
 if (browserSpeechAvailable()) $("cloudMic").classList.remove("hidden");
+// Only offer server transcription if this host actually provisioned Parakeet,
+// so the checkbox never promises something that would 503.
+fetch("/healthz")
+  .then((r) => r.json())
+  .then((h) => { if (h.stt) $("serverMic").classList.remove("hidden"); })
+  .catch(() => {});
 $("speak").onclick = async () => {
   if (recording) { finishAnswer(false); return; }
   recording = true;

@@ -2,25 +2,52 @@ services:
   - type: web
     name: placement-prep-coach
     runtime: node
-    # Standard (2 GB RAM): Parakeet peaks at ~1.15 GB + Node ~200 MB.
-    # Starter (512 MB) WILL OOM — do not downgrade without owner approval.
-    # Bump to `pro` (4 GB) if concurrent transcriptions OOM; credits cover judging week.
-    plan: standard
-    autoDeploy: true
-    sleeping: true
+    region: oregon
+    branch: main
+    autoDeployTrigger: commit
     healthCheckPath: /healthz
-    buildCommand: |-
-      npm ci &&
-      (test -x models/bin/transcribe-cli || (git clone --depth 1 https://github.com/handy-computer/transcribe.cpp.git /tmp/tc-build &&
-        cmake -S /tmp/tc-build -B /tmp/tc-build/build -DCMAKE_BUILD_TYPE=Release &&
-        cmake --build /tmp/tc-build/build --target transcribe-cli -j4 &&
-        mkdir -p models/bin && cp /tmp/tc-build/build/bin/transcribe-cli models/bin/)) &&
-      (test -f models/parakeet-Q4_K_M.gguf || (mkdir -p models &&
-        curl -sL -o models/parakeet-Q4_K_M.gguf https://huggingface.co/handy-computer/parakeet-tdt-0.6b-v3-gguf/resolve/main/parakeet-tdt-0.6b-v3-Q4_K_M.gguf))
     startCommand: npm start
+
+    # 1 CPU / 2 GB. Measured: Parakeet peak RSS 905 MB + Node ~200 MB.
+    # `free` (512 MB) OOMs on transcription and `0.5c-512mb` cannot even build.
+    # NOTE: Render does not scale paid web services to zero — there is no
+    # "sleep when idle" blueprint field. Suspend the service in the dashboard
+    # after the challenge window to stop burning credits.
+    plan: 1c-2g
+
+    # transcribe.cpp v0.4.0 publishes shared libraries only, so the CLI is
+    # compiled here. Render's build image ships gcc/make/git but no cmake.
+    # Cost measured on 12 cores: 85 s at -j2, peak 664 MB across compiler procs.
+    buildCommand: |-
+      set -e
+      npm ci
+
+      CM=/tmp/cmake-3.30.5-linux-x86_64/bin/cmake
+      curl -sL -o /tmp/cmake.tgz https://github.com/Kitware/CMake/releases/download/v3.30.5/cmake-3.30.5-linux-x86_64.tar.gz
+      tar xzf /tmp/cmake.tgz -C /tmp
+
+      git clone -q --depth 1 --branch v0.4.0 https://github.com/handy-computer/transcribe.cpp.git /tmp/tc
+      # GGML_NATIVE=OFF: build host and serving host need not share a CPU, and
+      # -march=native would risk SIGILL on a different machine.
+      # -j2: keeps peak compile memory far below the 2 GB instance limit.
+      $CM -S /tmp/tc -B /tmp/tc/build -DCMAKE_BUILD_TYPE=Release -DGGML_NATIVE=OFF
+      $CM --build /tmp/tc/build --target transcribe-cli -j2
+
+      mkdir -p models/bin
+      cp /tmp/tc/build/bin/transcribe-cli models/bin/transcribe-cli
+      # Parakeet TDT 0.6B v3 Q4_K_M, 463 MB, CC-BY-4.0.
+      curl -sL -o models/parakeet-Q4_K_M.gguf https://huggingface.co/handy-computer/parakeet-tdt-0.6b-v3-gguf/resolve/main/parakeet-tdt-0.6b-v3-Q4_K_M.gguf
+
+      # Fail the deploy rather than ship a host that only pretends to have STT.
+      test -x models/bin/transcribe-cli
+      if ldd models/bin/transcribe-cli | grep "not found"; then echo "unresolved shared libs" && exit 1; fi
+      test "$(stat -c%s models/parakeet-Q4_K_M.gguf)" -gt 400000000
+
     envVars:
       - key: NODE_VERSION
         value: "22"
+      - key: NODE_ENV
+        value: production
       - key: TRANSCRIBE_BIN
         value: models/bin/transcribe-cli
       - key: PARAKEET_MODEL
