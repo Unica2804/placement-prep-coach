@@ -9,10 +9,13 @@ services:
     startCommand: npm start
 
     # 1 CPU / 2 GB. Measured: Parakeet peak RSS 905 MB + Node ~200 MB.
-    # `free` (512 MB) OOMs on transcription and `0.5c-512mb` cannot even build.
-    # NOTE: Render does not scale paid web services to zero — there is no
-    # "sleep when idle" blueprint field. Suspend the service in the dashboard
-    # after the challenge window to stop burning credits.
+    # `free` (512 MB) cannot run Parakeet and cannot even compile it (peak
+    # compile RSS 664 MB), so any plan that ships server STT must be >= 1c-2g.
+    # Render requires a card or applied credit for paid plans; with STT_BUILD=0
+    # the free plan deploys this app with transcription on-device only.
+    # NOTE: Render has no `sleeping` blueprint field. The free plan spins down
+    # on its own after ~15 min idle, which is exactly the "sleep when idle"
+    # rule; a paid plan does NOT, and must be suspended by hand after judging.
     plan: 1c-2g
 
     # transcribe.cpp v0.4.0 publishes shared libraries only, so the CLI is
@@ -22,32 +25,37 @@ services:
       set -e
       npm ci
 
-      CM=/tmp/cmake-3.30.5-linux-x86_64/bin/cmake
-      curl -sL -o /tmp/cmake.tgz https://github.com/Kitware/CMake/releases/download/v3.30.5/cmake-3.30.5-linux-x86_64.tar.gz
-      tar xzf /tmp/cmake.tgz -C /tmp
+      if [ "$STT_BUILD" = "1" ]; then
+        CM=/tmp/cmake-3.30.5-linux-x86_64/bin/cmake
+        curl -sL -o /tmp/cmake.tgz https://github.com/Kitware/CMake/releases/download/v3.30.5/cmake-3.30.5-linux-x86_64.tar.gz
+        tar xzf /tmp/cmake.tgz -C /tmp
 
-      git clone -q --depth 1 --branch v0.4.0 https://github.com/handy-computer/transcribe.cpp.git /tmp/tc
-      # GGML_NATIVE=OFF: build host and serving host need not share a CPU, and
-      # -march=native would risk SIGILL on a different machine.
-      # -j2: keeps peak compile memory far below the 2 GB instance limit.
-      $CM -S /tmp/tc -B /tmp/tc/build -DCMAKE_BUILD_TYPE=Release -DGGML_NATIVE=OFF
-      $CM --build /tmp/tc/build --target transcribe-cli -j2
+        git clone -q --depth 1 --branch v0.4.0 https://github.com/handy-computer/transcribe.cpp.git /tmp/tc
+        # GGML_NATIVE=OFF: build host and serving host need not share a CPU, and
+        # -march=native would risk SIGILL on a different machine.
+        # -j2: keeps peak compile memory far below the 2 GB instance limit.
+        $CM -S /tmp/tc -B /tmp/tc/build -DCMAKE_BUILD_TYPE=Release -DGGML_NATIVE=OFF
+        $CM --build /tmp/tc/build --target transcribe-cli -j2
 
-      mkdir -p models/bin
-      cp /tmp/tc/build/bin/transcribe-cli models/bin/transcribe-cli
-      # Parakeet TDT 0.6B v3 Q4_K_M, 463 MB, CC-BY-4.0.
-      curl -sL -o models/parakeet-Q4_K_M.gguf https://huggingface.co/handy-computer/parakeet-tdt-0.6b-v3-gguf/resolve/main/parakeet-tdt-0.6b-v3-Q4_K_M.gguf
+        mkdir -p models/bin
+        cp /tmp/tc/build/bin/transcribe-cli models/bin/transcribe-cli
+        # Parakeet TDT 0.6B v3 Q4_K_M, 463 MB, CC-BY-4.0.
+        curl -sL -o models/parakeet-Q4_K_M.gguf https://huggingface.co/handy-computer/parakeet-tdt-0.6b-v3-gguf/resolve/main/parakeet-tdt-0.6b-v3-Q4_K_M.gguf
 
-      # Fail the deploy rather than ship a host that only pretends to have STT.
-      test -x models/bin/transcribe-cli
-      if ldd models/bin/transcribe-cli | grep "not found"; then echo "unresolved shared libs" && exit 1; fi
-      test "$(stat -c%s models/parakeet-Q4_K_M.gguf)" -gt 400000000
+        # Fail the deploy rather than ship a host that only pretends to have STT.
+        test -x models/bin/transcribe-cli
+        if ldd models/bin/transcribe-cli | grep "not found"; then echo "unresolved shared libs" && exit 1; fi
+        test "$(stat -c%s models/parakeet-Q4_K_M.gguf)" -gt 400000000
+      fi
 
     envVars:
       - key: NODE_VERSION
         value: "22"
       - key: NODE_ENV
         value: production
+      # "0" deploys the app with on-device transcription only (no compiled STT).
+      - key: STT_BUILD
+        value: "1"
       - key: TRANSCRIBE_BIN
         value: models/bin/transcribe-cli
       - key: PARAKEET_MODEL
@@ -56,3 +64,4 @@ services:
         value: https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF/resolve/main/gemma-4-E2B-it-IQ4_XS.gguf
       - key: SESSION_BACKUP
         value: opt-in
+
